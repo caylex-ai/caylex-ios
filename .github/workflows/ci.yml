@@ -1,0 +1,35 @@
+name: Package checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test package configuration
+        run: swift test
+      - name: Test streaming HTTP bridge
+        run: node --test Tests/JavaScript/native-fetch.test.mjs
+      - name: Verify bundled widget checksum
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, pathlib
+          root = pathlib.Path('Sources/CaylexChat/Resources')
+          metadata = json.loads((root / 'widget-build.json').read_text())
+          assert hashlib.sha256((root / 'chat-widget.js').read_bytes()).hexdigest() == metadata['sha256']
+          PY
+      - name: Generate demo project
+        run: |
+          brew install xcodegen
+          xcodegen generate --spec Examples/ChatDemo/project.yml
+      - name: Compile iOS demo and package
+        run: >-
+          xcodebuild -project Examples/ChatDemo/ChatDemo.xcodeproj
+          -scheme ChatDemo -destination 'generic/platform=iOS Simulator'
+          CODE_SIGNING_ALLOWED=NO build
