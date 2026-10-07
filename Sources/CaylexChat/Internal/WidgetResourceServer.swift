@@ -2,9 +2,14 @@
 import Foundation
 import Network
 
+protocol WidgetResourceServing: AnyObject, Sendable {
+    func start(completion: @escaping @Sendable (Result<URL, Error>) -> Void)
+    func stop()
+}
+
 /// Serves only bundled static resources on loopback. A localhost origin supports web media APIs.
 /// No credentials or API responses are served by this listener.
-final class WidgetResourceServer: @unchecked Sendable {
+final class WidgetResourceServer: WidgetResourceServing, @unchecked Sendable {
     private let queue = DispatchQueue(label: "ai.caylex.widget.resources")
     private var listener: NWListener?
     private var connections: [ObjectIdentifier: NWConnection] = [:]

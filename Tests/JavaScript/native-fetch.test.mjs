@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import vm from 'node:vm';
+import { setTimeout as delay } from 'node:timers/promises';
 import { webcrypto } from 'node:crypto';
 
 const source = readFileSync(new URL('../../Sources/CaylexChat/Resources/native-fetch.js', import.meta.url), 'utf8');
@@ -19,8 +20,13 @@ function fixture() {
   return { window, messages, fallback };
 }
 async function dispatched(f) {
-  await new Promise((resolve) => setImmediate(resolve));
-  return f.messages.find((message) => message.type === 'request');
+  const deadline = performance.now() + 2000;
+  while (performance.now() < deadline) {
+    const request = f.messages.find((message) => message.type === 'request');
+    if (request) return request;
+    await delay(5);
+  }
+  throw new Error('Native bridge request was not dispatched within 2 seconds');
 }
 
 test('stream reaches the reader before native completion', async () => {

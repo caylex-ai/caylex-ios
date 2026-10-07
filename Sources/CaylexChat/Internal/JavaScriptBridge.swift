@@ -10,7 +10,8 @@ final class JavaScriptBridge: NSObject, ChatCommandBridge, WKNavigationDelegate,
     private weak var webView: WKWebView?
     private let controller: CaylexChatController
     private var configuration: CaylexChatConfiguration
-    private var server: WidgetResourceServer?
+    private var server: (any WidgetResourceServing)?
+    private let makeServer: (URL) -> any WidgetResourceServing
     private var resourceURL: URL?
     private var loaded = false
     private var stopped = false
@@ -23,12 +24,15 @@ final class JavaScriptBridge: NSObject, ChatCommandBridge, WKNavigationDelegate,
         self?.webView?.callAsyncJavaScript("window.CaylexHTTP.receive(event)", arguments: ["event": event], in: nil, in: .page, completionHandler: nil)
     }
 
-    init(configuration: CaylexChatConfiguration, controller: CaylexChatController) {
+    init(configuration: CaylexChatConfiguration, controller: CaylexChatController,
+         makeServer: @escaping (URL) -> any WidgetResourceServing = { WidgetResourceServer(root: $0) }) {
         self.configuration = configuration
         self.controller = controller
+        self.makeServer = makeServer
     }
 
     func start(_ webView: WKWebView) {
+        guard !stopped, server == nil else { return }
         self.webView = webView
         guard controller.attach(self) else { return }
         do {
@@ -38,18 +42,22 @@ final class JavaScriptBridge: NSObject, ChatCommandBridge, WKNavigationDelegate,
                   FileManager.default.fileExists(atPath: root.appendingPathComponent("native-fetch.js").path) else {
                 throw CaylexChatError.missingResources
             }
-            let server = WidgetResourceServer(root: root)
+            let server = makeServer(root)
             self.server = server
-            server.start { [weak self] result in
+            server.start { [weak self, weak server] result in
                 Task { @MainActor in
-                    guard let self, !self.stopped else { return }
+                    guard let self, !self.stopped, let server, self.server === server else { return }
                     switch result {
                     case .success(let url): self.resourceURL = url; self.reload()
-                    case .failure(let error): self.controller.failed(error)
+                    case .failure(let error):
+                        server.stop()
+                        self.server = nil
+                        self.resourceURL = nil
+                        self.controller.failed(error)
                     }
                 }
             }
-            observeLifecycle()
+            if observers.isEmpty { observeLifecycle() }
         } catch { controller.failed(error) }
     }
 
@@ -74,7 +82,11 @@ final class JavaScriptBridge: NSObject, ChatCommandBridge, WKNavigationDelegate,
     }
 
     func reload() {
-        guard !stopped, let url = resourceURL, let webView else { return }
+        guard !stopped, let webView else { return }
+        guard let url = resourceURL else {
+            if server == nil { start(webView) }
+            return
+        }
         loaded = false
         transport.cancelRequests()
         controller.loading()
