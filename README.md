@@ -15,49 +15,67 @@ CDN download in the consuming app.
   implementation. Microphone/audio routing, device interruptions, and file-picker
   behavior still require physical-device verification.
 
-Add `https://github.com/caylex-ai/caylex-ios` through Xcode's package dependency
-settings. While the repository is private, consumers need repository access.
-Use the `main` branch during development; versioned releases will follow.
+## Add the package
+
+In Xcode, open **File → Add Package Dependencies**, enter
+`https://github.com/caylex-ai/caylex-ios`, and add the **CaylexChat** product to
+your app target. While the repository is private, developers need GitHub access.
+
+Until [the initial implementation PR](https://github.com/caylex-ai/caylex-ios/pull/1)
+is merged, select the `codex/ios-chat-wrapper` branch. After it is merged, use
+`main`; versioned releases will follow.
 
 ## Embed a chat
 
-```swift
-import CaylexChat
-import SwiftUI
+Obtain a short-lived widget token from your authenticated app backend, then
+present this SwiftUI screen. The refresh closure requests a replacement token
+from that same backend and is configured before the widget mounts.
 
-struct AssistantScreen: View {
-    @StateObject private var chat = CaylexChatController()
-    let widgetToken: String // Obtained from your authenticated app backend.
+```swift
+import SwiftUI
+import CaylexChat
+
+@MainActor
+struct ChatScreen: View {
+    @StateObject private var chat: CaylexChatController
+    private let configuration: CaylexChatConfiguration
+
+    init(
+        widgetToken: String,
+        refreshToken: @escaping () async throws -> String
+    ) {
+        let controller = CaylexChatController()
+        controller.refreshToken = refreshToken
+        // Configure onError, onNavigate, and session callbacks here as needed.
+        _chat = StateObject(wrappedValue: controller)
+
+        configuration = CaylexChatConfiguration(
+            apiBaseURL: URL(
+                string: "https://api.caylex.ai/api/v1/assistants/"
+            )!,
+            widgetToken: widgetToken
+        )
+    }
 
     var body: some View {
         CaylexChatView(
-            configuration: CaylexChatConfiguration(
-                apiBaseURL: URL(string: "https://api.caylex.ai/api/v1/assistants/")!,
-                widgetToken: widgetToken
-            ),
+            configuration: configuration,
             controller: chat
         )
-        .onAppear {
-            chat.refreshToken = {
-                // Call your backend's token-minting endpoint and return its widget token.
-                try await fetchWidgetTokenFromYourBackend()
-            }
-            chat.onError = { error in
-                // Present errors through your app's own UI.
-                print(error.localizedDescription)
-            }
-            chat.onNavigate = { url, pageName in
-                // Map the supplied page into your app's native navigation.
-            }
-        }
+        .ignoresSafeArea(.container)
     }
 }
 ```
 
-`fetchWidgetTokenFromYourBackend()` is an application-provided function. Platform
-credentials and Caylex API keys stay on your backend; only short-lived widget
-tokens reach the app. Configure callbacks before mounting the view when the
-initial token may already be expired.
+Your app supplies the `refreshToken` closure; the package does not mint tokens
+with platform credentials. The flow is **app → your backend → Caylex token
+minting API → widget token returned to the app**. Platform tokens and Caylex API
+keys stay on your backend. Only short-lived widget tokens reach the app.
+
+Add the local-networking and microphone entries described under
+[Host app configuration](#host-app-configuration) to your app's `Info.plist`.
+The view handles chat UI, API requests, and streamed replies without JavaScript
+setup in the consuming app.
 
 Keep one controller per mounted chat view. SwiftUI updates to credentials or
 appearance preserve the widget's session. Changing the API URL, agent instance,
