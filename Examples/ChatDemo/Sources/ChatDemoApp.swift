@@ -17,6 +17,7 @@ struct DemoView: View {
         Group {
             if let configuration {
                 CaylexChatView(configuration: configuration, controller: controller)
+                    .ignoresSafeArea(.container)
             } else if let connectionError {
                 VStack(spacing: 12) {
                     Text("Could not connect to Caylex").font(.headline)

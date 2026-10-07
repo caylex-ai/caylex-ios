@@ -118,6 +118,12 @@ and authentication popups open through `onOpenURL`, or the system browser if
 that callback is omitted. After authentication, the widget refreshes connected
 services when the app becomes active.
 
+For a full-screen chat, apply `.ignoresSafeArea(.container)` to `CaylexChatView`.
+The bundled page uses `viewport-fit=cover` and safe-area insets to keep the
+header, composer, and drawer controls clear of the status bar and home indicator,
+while drawer backgrounds and backdrops cover the entire screen. Keyboard safe
+areas remain managed by SwiftUI.
+
 ## Host app configuration
 
 The bundle is served from a random URL path on an ephemeral HTTP listener bound

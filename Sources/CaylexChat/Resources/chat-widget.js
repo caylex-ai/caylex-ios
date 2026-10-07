@@ -336,7 +336,7 @@ var __defProp=Object.defineProperty,__defNormalProp=(e,t,n)=>t in e?__defProp(e,
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 8px 20px 16px;
+  padding: 8px 20px calc(16px + env(safe-area-inset-bottom, 0px));
   background: transparent;
   pointer-events: none; /* Allow clicking through empty space */
   outline: ${({$isDraggingOver:e,theme:t})=>e?`2px dashed ${t.token.colorPrimary||"#3F58CF"}`:"none"};
@@ -1319,6 +1319,8 @@ var __defProp=Object.defineProperty,__defNormalProp=(e,t,n)=>t in e?__defProp(e,
   display: flex;
   flex-direction: column;
   container: saved-sessions-panel / size;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   background: ${({$bg:e})=>e};
   color: ${({$text:e})=>e};
   border-left: 1px solid ${({$text:e})=>`${e}15`};
@@ -2787,6 +2789,8 @@ var __defProp=Object.defineProperty,__defNormalProp=(e,t,n)=>t in e?__defProp(e,
 `,PM=su.div`
   display: flex;
   flex-direction: column;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   height: ${({$height:e})=>"number"==typeof e?`${e}px`:e};
   width: ${({$width:e})=>"number"==typeof e?`${e}px`:e};
   border-radius: ${({$borderRadius:e})=>e}px;
