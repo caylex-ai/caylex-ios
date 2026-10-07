@@ -49,7 +49,8 @@ public struct CaylexChatConfiguration: Encodable, Equatable, Sendable {
     public var backgroundColor = "#FFFFFF"
     public var darkPrimaryColor: String?
     public var darkBackgroundColor: String?
-    public var borderRadius = 0
+    /// Rounding for widget controls and popovers; matches the web widget theme.
+    public var borderRadius = 12
     public var presentation: Presentation = .full
     public var enableCompactMode = false
     public var showToolCallDetails = false
