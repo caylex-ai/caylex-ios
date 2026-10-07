@@ -140,6 +140,11 @@ For microphone features, also add a description appropriate to your app:
 ```
 
 Microphone access is requested only when the user activates a voice control.
+iOS Simulator's WebKit uses mock capture devices by default. A successful
+`getUserMedia` call or a connected voice session there does not prove it is
+receiving your Mac microphone; our iOS 18.3 runtime reports `Mock audio device 1`.
+Use a physical iPhone to validate dictation and live voice with real speech.
+
 Camera access is denied. The host app owns any audio-session policies it needs
 for mixing, Bluetooth, or other existing audio features. Voice capture stops
 when the app enters the background; it is not automatically restarted.
@@ -174,14 +179,14 @@ open Examples/ChatDemo/ChatDemo.xcodeproj
 Run the `ChatDemo` scheme on an iPhone simulator. Its initial token deliberately
 expires to test automatic refresh. The local backend produces clearly labeled
 fixture replies, a tool-approval flow, and a saved session. It never calls an AI
-provider. The toolbar tests session restoration and appearance updates.
+provider. The demo shows only the embedded chat, without a host toolbar or debug footer.
 
-To test a real agent, enter a widget token in Settings, or run the local server
+To test a real agent, run the local server
 with `--credentials-file /absolute/path/to/private-credentials.json`. That
 private file contains `platformToken`, `caylexApiKey`, `userEmail`, `mintURL`, and
 `apiBaseURL`, plus an optional `userName`. Use the matching production or development
 Caylex endpoints. Keep this file outside the repository with owner-only permissions.
-Then select **Load live widget token from local server** in the demo's Settings.
+The demo automatically requests a live widget token at launch when this helper is configured; otherwise it uses the local fixture.
 This helper is for simulator development only; production apps use their own
 backend for token minting and refresh.
 
