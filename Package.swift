@@ -3,14 +3,15 @@ import PackageDescription
 
 let package = Package(
     name: "CaylexChat",
-    platforms: [.iOS(.v15)],
+    platforms: [.iOS("16.4")],
     products: [
         .library(name: "CaylexChat", targets: ["CaylexChat"])
     ],
     targets: [
         .target(
             name: "CaylexChat",
-            resources: [.copy("Resources")]
-        )
+            resources: [.process("Resources")]
+        ),
+        .testTarget(name: "CaylexChatTests", dependencies: ["CaylexChat"])
     ]
 )

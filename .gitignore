@@ -6,3 +6,7 @@ xcuserdata/
 .DS_Store
 .env
 .env.*
+
+# Demo project is generated from project.yml
+Examples/ChatDemo/ChatDemo.xcodeproj/
+Examples/ChatDemo/Info.plist

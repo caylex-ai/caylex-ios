@@ -1,0 +1,58 @@
+name: ChatDemo
+options:
+  deploymentTarget:
+    iOS: '16.4'
+settings:
+  base:
+    MARKETING_VERSION: 0.1.0
+    CURRENT_PROJECT_VERSION: 1
+packages:
+  CaylexChat:
+    path: ../..
+targets:
+  ChatDemo:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    dependencies:
+      - package: CaylexChat
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.caylex.ChatDemo
+        SWIFT_VERSION: '6.0'
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGNING_ALLOWED: NO
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: Talk to your Caylex assistant.
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+    info:
+      path: Info.plist
+      properties:
+        NSMicrophoneUsageDescription: Talk to your Caylex assistant.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+  ChatDemoTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: ../../Tests/CaylexChatTests
+    dependencies:
+      - target: ChatDemo
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.caylex.ChatDemoTests
+        SWIFT_VERSION: '6.0'
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGNING_ALLOWED: NO
+schemes:
+  ChatDemo:
+    build:
+      targets:
+        ChatDemo: all
+    test:
+      targets:
+        - ChatDemoTests
