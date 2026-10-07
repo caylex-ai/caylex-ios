@@ -9,34 +9,50 @@ struct ChatDemoApp: App {
 @MainActor
 struct DemoView: View {
     @StateObject private var controller = CaylexChatController()
-    @State private var configuration = fixtureConfiguration()
-    @State private var configured = false
+    @State private var configuration: CaylexChatConfiguration?
+    @State private var connectionError: String?
     @State private var useLocalTokenServer = false
 
     var body: some View {
         Group {
-            if configured {
+            if let configuration {
                 CaylexChatView(configuration: configuration, controller: controller)
+            } else if let connectionError {
+                VStack(spacing: 12) {
+                    Text("Could not connect to Caylex").font(.headline)
+                    Text(connectionError).multilineTextAlignment(.center)
+                    Button("Retry") { Task { await connect() } }
+                }.padding(24)
             } else {
                 ProgressView("Connecting…")
             }
         }
-        .task {
-            guard !configured else { return }
-            controller.refreshToken = {
-                if useLocalTokenServer { return try await fetchLocalToken(path: "token").widgetToken }
-                return "demo-token"
+        .task { if configuration == nil { await connect() } }
+    }
+
+    private func connect() async {
+        connectionError = nil
+        controller.refreshToken = {
+            if useLocalTokenServer { return try await fetchLocalToken(path: "token").widgetToken }
+            return "demo-token"
+        }
+        // Fixtures are opt-in so backend failures never look like AI replies.
+        if ProcessInfo.processInfo.arguments.contains("--fixture") {
+            configuration = Self.fixtureConfiguration()
+            return
+        }
+        do {
+            let live = try await fetchLocalToken(path: "config")
+            guard let url = URL(string: live.apiBaseUrl) else {
+                throw CaylexChatError.bridge("The token server returned an invalid API URL")
             }
-            // The demo host adds no navigation or debug chrome around the widget.
-            // Keep credentials on the Mac; request a fresh widget token at launch.
-            if let live = try? await fetchLocalToken(path: "config"),
-               let url = URL(string: live.apiBaseUrl) {
-                configuration = CaylexChatConfiguration(apiBaseURL: url, widgetToken: live.widgetToken)
-                configuration.userName = live.userName
-                configuration.sampleQueries = ["What can you help me with?"]
-                useLocalTokenServer = true
-            }
-            configured = true
+            var config = CaylexChatConfiguration(apiBaseURL: url, widgetToken: live.widgetToken)
+            config.userName = live.userName
+            config.sampleQueries = ["What can you help me with?"]
+            useLocalTokenServer = true
+            configuration = config
+        } catch {
+            connectionError = "Start the local token server with your credentials file, then retry. " + error.localizedDescription
         }
     }
 

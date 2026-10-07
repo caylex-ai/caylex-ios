@@ -176,8 +176,9 @@ python3 Examples/ChatDemo/demo-server.py
 open Examples/ChatDemo/ChatDemo.xcodeproj
 ```
 
-Run the `ChatDemo` scheme on an iPhone simulator. Its initial token deliberately
-expires to test automatic refresh. The local backend produces clearly labeled
+Run the `ChatDemo` scheme on an iPhone simulator with the `--fixture` launch
+argument to test the local fixture. Its initial token deliberately expires to
+test automatic refresh. The local backend produces clearly labeled
 fixture replies, a tool-approval flow, and a saved session. It never calls an AI
 provider. The demo shows only the embedded chat, without a host toolbar or debug footer.
 
@@ -186,7 +187,7 @@ with `--credentials-file /absolute/path/to/private-credentials.json`. That
 private file contains `platformToken`, `caylexApiKey`, `userEmail`, `mintURL`, and
 `apiBaseURL`, plus an optional `userName`. Use the matching production or development
 Caylex endpoints. Keep this file outside the repository with owner-only permissions.
-The demo automatically requests a live widget token at launch when this helper is configured; otherwise it uses the local fixture.
+The demo automatically requests a live widget token at launch when this helper is configured; a token-server failure shows a retry screen instead of silently using a fixture.
 This helper is for simulator development only; production apps use their own
 backend for token minting and refresh.
 
