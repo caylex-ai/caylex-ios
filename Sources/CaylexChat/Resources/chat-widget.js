@@ -2790,7 +2790,6 @@ var __defProp=Object.defineProperty,__defNormalProp=(e,t,n)=>t in e?__defProp(e,
   display: flex;
   flex-direction: column;
   padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
   height: ${({$height:e})=>"number"==typeof e?`${e}px`:e};
   width: ${({$width:e})=>"number"==typeof e?`${e}px`:e};
   border-radius: ${({$borderRadius:e})=>e}px;
