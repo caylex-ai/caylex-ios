@@ -54,10 +54,10 @@ var __defProp=Object.defineProperty,__defNormalProp=(e,t,n)=>t in e?__defProp(e,
   stroke-linecap: round;
   stroke-linejoin: round;
 `;const R$=su.div`
-  position: fixed; inset: 0; z-index: 2000; background: rgba(0, 0, 0, 0.12);
+  position: fixed; inset: 0; z-index: 2000; background: rgba(0, 0, 0, 0.05);
 `,A$=su.div`
   position: fixed; padding: 10px 6px 6px; box-sizing: border-box; border-radius: 18px;
-  background: ${({theme:e})=>"dark"===e.resolvedTheme?"rgba(34, 33, 40, 0.42)":"rgba(250, 250, 253, 0.42)"};
+  background: ${({theme:e})=>"dark"===e.resolvedTheme?"rgba(42, 41, 48, 0.42)":"rgba(255, 255, 255, 0.42)"};
   color: ${({theme:e})=>"dark"===e.resolvedTheme?"#f5f5f7":"#171719"};
   border: 1px solid rgba(160, 160, 175, 0.3);
   backdrop-filter: blur(8px) saturate(150%); -webkit-backdrop-filter: blur(8px) saturate(150%);
