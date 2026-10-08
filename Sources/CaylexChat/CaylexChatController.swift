@@ -75,7 +75,12 @@ public final class CaylexChatController: ObservableObject {
     func detach(_ bridge: ChatCommandBridge) {
         guard self.bridge === bridge else { return }
         self.bridge = nil
-        status = .idle
+        // Dismantling a UIViewRepresentable can run while SwiftUI invalidates its
+        // graph. Publishing synchronously here reenters that graph and can crash.
+        Task { @MainActor [weak self] in
+            guard let self, self.bridge == nil else { return }
+            self.status = .idle
+        }
     }
     func loading() { status = .loading }
     func failed(_ error: Error) { status = .failed(error.localizedDescription); report(error) }

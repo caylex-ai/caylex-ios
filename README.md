@@ -21,9 +21,11 @@ In Xcode, open **File → Add Package Dependencies**, enter
 `https://github.com/caylex-ai/caylex-ios`, and add the **CaylexChat** product to
 your app target. While the repository is private, developers need GitHub access.
 
-Until [the initial implementation PR](https://github.com/caylex-ai/caylex-ios/pull/1)
-is merged, select the `codex/ios-chat-wrapper` branch. After it is merged, use
-`main`; versioned releases will follow.
+Select the `main` branch for the current implementation. No version tags have
+been published yet. A semantic-version tag (for example, `0.1.0`) will let apps
+pin a tested release using Xcode's version dependency rules instead of a moving
+branch. The Git repository is the distribution source; no App Store submission
+or npm installation is needed to consume this Swift package.
 
 ## Embed a chat
 
@@ -86,6 +88,27 @@ and a separate controller so the previous account's state is discarded.
 The view fills its parent and follows SwiftUI's keyboard safe area. Give it a
 bounded height when placing it inside another scrolling layout. It does not
 force its own navigation bar, sheet, or full-screen presentation.
+
+The host app controls the widget's outer shape with ordinary SwiftUI modifiers:
+
+```swift
+CaylexChatView(configuration: config, controller: chat)
+    .frame(maxWidth: .infinity)
+    .frame(height: 500)
+    .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+    .overlay {
+        RoundedRectangle(cornerRadius: 28, style: .continuous)
+            .strokeBorder(.gray.opacity(0.2), lineWidth: 1)
+            .allowsHitTesting(false)
+    }
+    .padding(16)
+```
+
+For a top bar or bottom dock, place the chat in the remaining space in a
+`VStack(spacing: 0)` and let SwiftUI size it. Keep the default safe-area behavior
+for those embedded layouts; use `.ignoresSafeArea(.container)` only when the
+chat should extend to the screen edges. Avoid ignoring the keyboard safe area.
+Clipping also contains the widget's drawers and popovers inside your chosen shape.
 
 ## Sessions and notification routing
 
@@ -204,7 +227,12 @@ Run the `ChatDemo` scheme on an iPhone simulator with the `--fixture` launch
 argument to test the local fixture. Its initial token deliberately expires to
 test automatic refresh. The local backend produces clearly labeled
 fixture replies, a tool-approval flow, and a saved session. It never calls an AI
-provider. The demo shows only the embedded chat, without a host toolbar or debug footer.
+provider. The demo opens a layout picker with three pages: full screen, above a
+native bottom dock, and a rounded card between a top bar and bottom dock.
+Use **Layouts** to return to the picker. Each page owns a separate controller;
+returning to the picker closes that mounted chat. The full-screen page's floating
+Layouts button is a demo control, not part of the package.
+For a direct launch, add `--layout=full`, `--layout=dock`, or `--layout=framed`.
 
 To test a real agent, run the local server
 with `--credentials-file /absolute/path/to/private-credentials.json`. That
