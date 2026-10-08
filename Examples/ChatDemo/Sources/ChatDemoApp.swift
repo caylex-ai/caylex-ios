@@ -8,16 +8,40 @@ struct ChatDemoApp: App {
 
 @MainActor
 struct DemoView: View {
-    @StateObject private var controller = CaylexChatController()
     @State private var configuration: CaylexChatConfiguration?
     @State private var connectionError: String?
     @State private var useLocalTokenServer = false
+    @State private var selectedLayout: DemoLayout?
 
     var body: some View {
         Group {
             if let configuration {
-                CaylexChatView(configuration: configuration, controller: controller)
-                    .ignoresSafeArea(.container)
+                NavigationStack {
+                    List(DemoLayout.allCases) { layout in
+                        Button { selectedLayout = layout } label: {
+                            Label {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(layout.title).font(.headline)
+                                    Text(layout.detail).font(.subheadline).foregroundStyle(.secondary)
+                                }.padding(.vertical, 10)
+                            } icon: { Image(systemName: layout.symbol) }
+                        }
+                        .accessibilityIdentifier("layout-\(layout.rawValue)")
+                    }
+                    .navigationTitle("Chat layouts")
+                    .toolbar {
+                        Menu("Appearance") {
+                            Button("Light") { self.configuration?.theme = .light }
+                            Button("Dark") { self.configuration?.theme = .dark }
+                        }
+                    }
+                }
+                .fullScreenCover(item: $selectedLayout) { layout in
+                    EmbeddingDemoScreen(configuration: configuration, layout: layout, refreshToken: {
+                        if useLocalTokenServer { return try await fetchLocalToken(path: "token").widgetToken }
+                        return "demo-token"
+                    })
+                }
             } else if let connectionError {
                 VStack(spacing: 12) {
                     Text("Could not connect to Caylex").font(.headline)
@@ -33,13 +57,10 @@ struct DemoView: View {
 
     private func connect() async {
         connectionError = nil
-        controller.refreshToken = {
-            if useLocalTokenServer { return try await fetchLocalToken(path: "token").widgetToken }
-            return "demo-token"
-        }
         // Fixtures are opt-in so backend failures never look like AI replies.
         if ProcessInfo.processInfo.arguments.contains("--fixture") {
             configuration = Self.fixtureConfiguration()
+            selectLaunchLayout()
             return
         }
         do {
@@ -52,8 +73,16 @@ struct DemoView: View {
             config.sampleQueries = ["What can you help me with?"]
             useLocalTokenServer = true
             configuration = config
+            selectLaunchLayout()
         } catch {
             connectionError = "Start the local token server with your credentials file, then retry. " + error.localizedDescription
+        }
+    }
+
+    private func selectLaunchLayout() {
+        let prefix = "--layout="
+        if let argument = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix(prefix) }) {
+            selectedLayout = DemoLayout(rawValue: String(argument.dropFirst(prefix.count)))
         }
     }
 

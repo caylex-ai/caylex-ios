@@ -6,6 +6,32 @@ import XCTest
 
 final class BridgeRecoveryTests: XCTestCase {
     @MainActor
+    func testDeferredDetachDoesNotResetRemountedController() async throws {
+        let controller = CaylexChatController()
+        let first = JavaScriptBridge(configuration: configuration(), controller: controller,
+                                     makeServer: { _ in StubResourceServer(fails: false) })
+        let second = JavaScriptBridge(configuration: configuration(), controller: controller,
+                                      makeServer: { _ in StubResourceServer(fails: false) })
+        let firstView = WKWebView()
+        let secondView = WKWebView()
+        first.start(firstView)
+        first.stop()
+        second.start(secondView)
+        defer { second.stop() }
+        try await Task.sleep(nanoseconds: 10_000_000)
+        XCTAssertEqual(controller.status, .loading)
+    }
+
+    @MainActor
+    func testDetachEventuallyReturnsControllerToIdle() async throws {
+        let (bridge, controller, webView, _, _) = fixture()
+        bridge.start(webView)
+        bridge.stop()
+        try await Task.sleep(nanoseconds: 10_000_000)
+        XCTAssertEqual(controller.status, .idle)
+    }
+
+    @MainActor
     func testRetryStartsNewListenerAfterStartupFailure() async throws {
         let (bridge, controller, webView, failed, replacement) = fixture()
         defer { bridge.stop() }
