@@ -272,8 +272,15 @@ After merging a promotion PR, select **Actions → Publish iOS release → Run w
 choose **prod**, and enter a new stable version such as `0.1.0` (without `v`).
 The workflow validates bundle provenance, runs package/bridge tests, and compiles
 both device and simulator builds before creating `v0.1.0` and a GitHub release.
-It rejects existing or older versions and refuses publication if `prod` changes
-while checks are running. It does not merge branches or change repository visibility.
+The release is pinned to the production commit selected when the workflow starts;
+advancing `prod` during its checks does not change what gets tested or tagged.
+New versions must increase. A retry may reuse an existing version only when its
+tag points to that same tested commit. Existing tags are never moved and completed
+releases are left unchanged. If tag publication succeeds but GitHub release creation
+fails, rerun the failed workflow with **Re-run failed jobs** so it retains the original
+commit and completes the missing release. A new dispatch after `prod` advances cannot
+reuse the old version for a different commit.
+The workflow does not merge branches or change repository visibility.
 
 Install production releases in Xcode using a version dependency rule once the first
 tag exists. The repository remains a source package; private consumers need repository

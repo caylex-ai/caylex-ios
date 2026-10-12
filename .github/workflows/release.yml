@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'New Swift package version (e.g. 0.1.0; no v prefix)'
+        description: 'Swift package version (e.g. 0.1.0; no v prefix; reruns resume the same commit)'
         required: true
         type: string
 
@@ -39,7 +39,7 @@ jobs:
         env:
           RELEASE_VERSION: ${{ inputs.version }}
         run: |
-          TAG=$(python3 Scripts/check-release-version.py "$RELEASE_VERSION")
+          TAG=$(python3 Scripts/check-release-version.py "$RELEASE_VERSION" "$GITHUB_SHA")
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@v4
@@ -75,16 +75,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
         run: |
-          # Refuse a stale release if prod moved while its checks were running.
-          PROD_HEAD=$(git ls-remote origin refs/heads/prod | cut -f1)
-          if [ "$PROD_HEAD" != "$GITHUB_SHA" ]; then
-            echo '::error::prod changed during this run. Run the release again.'
-            exit 1
-          fi
+          # Release the exact production commit selected at dispatch and tested above.
+          # A newer prod commit is a separate candidate for the next release.
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git tag -a "$RELEASE_TAG" "$GITHUB_SHA" -m "CaylexChat $RELEASE_TAG"
-          git push origin "refs/tags/$RELEASE_TAG"
           python3 - <<'PY'
           import json, pathlib
           m = json.loads(pathlib.Path('Sources/CaylexChat/Resources/widget-build.json').read_text())
@@ -94,5 +88,5 @@ jobs:
               f"Frontend source: https://github.com/caylex-ai/caylex-frontend/commit/{m['frontendCommit']}\n\n"
               f"Bundle SHA-256: `{m['sha256']}`\n")
           PY
-          gh release create "$RELEASE_TAG" --verify-tag --title "CaylexChat $RELEASE_TAG" \
-            --notes-file release-notes.md
+          python3 Scripts/publish-release.py --tag "$RELEASE_TAG" --commit "$GITHUB_SHA" \
+            --repository "$GITHUB_REPOSITORY" --notes release-notes.md
