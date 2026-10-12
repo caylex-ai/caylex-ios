@@ -19,13 +19,18 @@ CDN download in the consuming app.
 
 In Xcode, open **File → Add Package Dependencies**, enter
 `https://github.com/caylex-ai/caylex-ios`, and add the **CaylexChat** product to
-your app target. While the repository is private, developers need GitHub access.
+your app target. This repository is public; developers do not need an invitation
+or access to the private frontend repository.
 
-Select the `main` branch for the current stable implementation, or `dev` for development testing. No version tags have
-been published yet. A semantic-version tag (for example, `0.1.0`) will let apps
-pin a tested release using Xcode's version dependency rules instead of a moving
-branch. The Git repository is the distribution source; no App Store submission
-or npm installation is needed to consume this Swift package.
+No version tags have been published yet. Select the `main` branch to try the
+current stable implementation, or `dev` for development testing. Once the first
+release is published, use Xcode's version dependency rules to pin a tested
+version (for example, `0.1.0`) for production apps instead of tracking a moving
+branch. Update the package dependency and ship an app update to deliver later
+widget releases to installed apps.
+
+The Git repository is the distribution source; no App Store submission or npm
+installation is needed to consume this Swift package.
 
 ## Embed a chat
 
@@ -285,8 +290,9 @@ reuse the old version for a different commit.
 The workflow does not merge branches or change repository visibility.
 
 Install production releases in Xcode using a version dependency rule once the first
-tag exists. The repository remains a source package; private consumers need repository
-access for local development and CI. There is no binary SDK upload in this workflow.
+tag exists. This is a public source package, so app developers and their CI systems
+can fetch it without private-repository credentials. There is no binary SDK upload
+in this workflow.
 
 Frontend production (`prod`) changes automatically open or update `automation/sync-widget` → `dev`
 in this repository after the frontend sync workflow is installed and its cross-repo
@@ -294,11 +300,11 @@ credential is configured. Review those PRs after package checks pass, then promo
 and release when ready. Native-only improvements can be released without changing
 the bundled web widget.
 
-Bootstrap the workflow by merging its setup PR into `dev`, then promoting `dev`
-to `main`. The manual release action becomes available on the default `main` branch.
-Use only `dev` and `main` as long-lived branches; there is no separate iOS `prod` branch.
-Protect `dev` and `main` with required PRs and package checks
-in repository settings according to your organization's policy.
+The manual release action is available on the default `main` branch. Use only
+`dev` and `main` as long-lived branches; there is no separate iOS `prod` branch.
+Both branches require a pull request, one maintainer approval, and a passing
+GitHub Actions `check`. New commits dismiss stale approvals; force pushes and
+branch deletions are blocked. Reviewers must be different from the PR author.
 
 The frontend workflow uses `CAYLEX_IOS_SYNC_TOKEN` (Contents and Pull requests write
 access to this repository) stored in `caylex-frontend` Actions secrets. See
