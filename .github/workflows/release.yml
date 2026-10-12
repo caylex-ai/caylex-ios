@@ -24,8 +24,8 @@ jobs:
     steps:
       - name: Require the production branch
         run: |
-          if [ "$GITHUB_REF" != 'refs/heads/prod' ]; then
-            echo '::error::Select prod when running Publish iOS release.'
+          if [ "$GITHUB_REF" != 'refs/heads/main' ]; then
+            echo '::error::Select main when running Publish iOS release.'
             exit 1
           fi
 
@@ -76,7 +76,7 @@ jobs:
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
         run: |
           # Release the exact production commit selected at dispatch and tested above.
-          # A newer prod commit is a separate candidate for the next release.
+          # A newer main commit is a separate candidate for the next release.
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           python3 - <<'PY'

@@ -21,7 +21,7 @@ In Xcode, open **File → Add Package Dependencies**, enter
 `https://github.com/caylex-ai/caylex-ios`, and add the **CaylexChat** product to
 your app target. While the repository is private, developers need GitHub access.
 
-Select the `prod` branch for the current stable implementation, or `dev` for development testing. No version tags have
+Select the `main` branch for the current stable implementation, or `dev` for development testing. No version tags have
 been published yet. A semantic-version tag (for example, `0.1.0`) will let apps
 pin a tested release using Xcode's version dependency rules instead of a moving
 branch. The Git repository is the distribution source; no App Store submission
@@ -265,20 +265,20 @@ checksum, and compiles the iOS demo. No credentials are required.
 ## Development and production releases
 
 - `dev` receives Swift changes and reviewed frontend bundle sync PRs.
-- `prod` contains approved production code. Promote with a `dev` → `prod` PR.
+- `main` is the default branch and contains approved production code. Promote with a `dev` → `main` PR.
 - Swift package release versions are independent of the bundled widget's npm version.
 
 After merging a promotion PR, select **Actions → Publish iOS release → Run workflow**,
-choose **prod**, and enter a new stable version such as `0.1.0` (without `v`).
+choose **main**, and enter a new stable version such as `0.1.0` (without `v`).
 The workflow validates bundle provenance, runs package/bridge tests, and compiles
 both device and simulator builds before creating `v0.1.0` and a GitHub release.
 The release is pinned to the production commit selected when the workflow starts;
-advancing `prod` during its checks does not change what gets tested or tagged.
+advancing `main` during its checks does not change what gets tested or tagged.
 New versions must increase. A retry may reuse an existing version only when its
 tag points to that same tested commit. Existing tags are never moved and completed
 releases are left unchanged. If tag publication succeeds but GitHub release creation
 fails, rerun the failed workflow with **Re-run failed jobs** so it retains the original
-commit and completes the missing release. A new dispatch after `prod` advances cannot
+commit and completes the missing release. A new dispatch after `main` advances cannot
 reuse the old version for a different commit.
 The workflow does not merge branches or change repository visibility.
 
@@ -293,9 +293,9 @@ and release when ready. Native-only improvements can be released without changin
 the bundled web widget.
 
 Bootstrap the workflow by merging its setup PR into `dev`, then promoting `dev`
-to `prod`. Make `prod` the default branch so the manual release action is available.
-Keep `main` temporarily for existing branch-based consumers; it is a legacy snapshot,
-not a release channel. Protect `dev` and `prod` with required PRs and package checks
+to `main`. The manual release action becomes available on the default `main` branch.
+Use only `dev` and `main` as long-lived branches; there is no separate iOS `prod` branch.
+Protect `dev` and `main` with required PRs and package checks
 in repository settings according to your organization's policy.
 
 The frontend workflow uses `CAYLEX_IOS_SYNC_TOKEN` (Contents and Pull requests write
