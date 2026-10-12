@@ -33,24 +33,34 @@ def ensure_tag(tag, commit):
             raise ValueError(f'Local {tag} points to a different commit')
     else:
         command('git', 'tag', '-a', tag, commit, '-m', f'CaylexChat {tag}')
-    # Never force a tag or write to prod. A concurrent matching tag is reusable.
+    # Never force a tag or write to main. A concurrent matching tag is reusable.
     pushed = command('git', 'push', 'origin', f'refs/tags/{tag}', check=False)
     if pushed.returncode != 0:
         if remote_tag_commit(tag) != commit:
             pushed.check_returncode()
 
 
-def find_release(repository, tag):
-    response = command('gh', 'api', '--include', f'repos/{repository}/releases/tags/{tag}', check=False)
-    status = re.match(r'HTTP/\S+\s+(\d+)', response.stdout)
-    if status and status.group(1) == '404':
-        return None
-    # Authentication/network failures must not be mistaken for a missing release.
+def list_releases(repository):
+    # The tag lookup endpoint excludes drafts. The listing includes drafts for
+    # this workflow's write-capable token; paginate so old partial releases count.
+    response = command('gh', 'api', '--paginate', '--slurp',
+                       f'repos/{repository}/releases?per_page=100')
     response.check_returncode()
-    if not status or status.group(1) != '200':
+    pages = json.loads(response.stdout)
+    if not isinstance(pages, list) or any(not isinstance(page, list) for page in pages):
         raise ValueError('Could not determine existing GitHub release state')
-    _, body = re.split(r'\r?\n\r?\n', response.stdout, maxsplit=1)
-    return json.loads(body)
+    return [release for page in pages for release in page]
+
+
+def find_release(repository, tag, releases=None):
+    if releases is None:
+        releases = list_releases(repository)
+    return next((release for release in releases if release.get('tag_name') == tag), None)
+
+
+def version_number(tag):
+    match = re.fullmatch(r'v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)', tag)
+    return tuple(map(int, match.groups())) if match else None
 
 
 def publish(tag, commit, repository, notes):
@@ -60,16 +70,25 @@ def publish(tag, commit, repository, notes):
         raise ValueError('Invalid release commit')
     if command('git', 'rev-parse', 'HEAD').stdout.strip() != commit:
         raise ValueError('Checkout does not match the tested release commit')
+    releases = list_releases(repository)
     ensure_tag(tag, commit)
-    release = find_release(repository, tag)
+    release = find_release(repository, tag, releases)
+    # Repairing an old release must not displace a newer published stable release.
+    newer_published = any(
+        not item.get('draft') and not item.get('prerelease') and
+        version_number(item.get('tag_name', '')) is not None and
+        version_number(item['tag_name']) > version_number(tag)
+        for item in releases
+    )
+    latest_option = ['--latest=false'] if newer_published else []
     if release is not None:
         if release.get('draft'):
             # A tag-only API failure or a manually staged draft can be completed.
-            command('gh', 'release', 'edit', tag, '--repo', repository, '--draft=false')
+            command('gh', 'release', 'edit', tag, '--repo', repository, '--draft=false', *latest_option)
         print(f'{tag} already exists; keeping its tag and release contents')
         return
     command('gh', 'release', 'create', tag, '--repo', repository, '--verify-tag',
-            '--title', f'CaylexChat {tag}', '--notes-file', notes)
+            '--title', f'CaylexChat {tag}', '--notes-file', notes, *latest_option)
     print(f'Published {tag} at tested commit {commit}')
 
 

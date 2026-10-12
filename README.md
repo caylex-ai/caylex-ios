@@ -275,7 +275,9 @@ both device and simulator builds before creating `v0.1.0` and a GitHub release.
 The release is pinned to the production commit selected when the workflow starts;
 advancing `main` during its checks does not change what gets tested or tagged.
 New versions must increase. A retry may reuse an existing version only when its
-tag points to that same tested commit. Existing tags are never moved and completed
+tag points to that same tested commit, even if newer versions have since been released.
+Recovery detects existing drafts and preserves any newer latest release.
+Existing tags are never moved and completed
 releases are left unchanged. If tag publication succeeds but GitHub release creation
 fails, rerun the failed workflow with **Re-run failed jobs** so it retains the original
 commit and completes the missing release. A new dispatch after `main` advances cannot

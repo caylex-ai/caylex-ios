@@ -14,12 +14,12 @@ def validate(version: str, tags: list[str], resume_commit: str | None = None,
         raise ValueError('Enter a stable semantic version such as 0.1.0, without a v prefix')
     number = tuple(map(int, match.groups()))
     target = 'v' + version
+    if (target in tags and resume_commit is not None and
+            (tag_commits or {}).get(target) == resume_commit):
+        return target
     for tag in tags:
         existing = re.fullmatch(PATTERN, tag.removeprefix('v'))
         if existing and tuple(map(int, existing.groups())) >= number:
-            if (tag == target and resume_commit is not None and
-                    (tag_commits or {}).get(tag) == resume_commit):
-                continue
             raise ValueError(f'Version must be newer than existing release tag {tag}, or retry its exact commit')
     return 'v' + version
 

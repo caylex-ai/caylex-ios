@@ -31,10 +31,11 @@ class ReleaseChecks(unittest.TestCase):
 
     def test_allows_retry_only_for_the_same_tag_commit(self):
         commit = 'a' * 40
-        self.assertEqual(version.validate('0.1.0', ['v0.1.0'], commit,
-                                         {'v0.1.0': commit}), 'v0.1.0')
+        for tags in [['v0.1.0', 'v0.2.0'], ['v0.2.0', 'v0.1.0']]:
+            self.assertEqual(version.validate('0.1.0', tags, commit,
+                                             {'v0.1.0': commit}), 'v0.1.0')
         with self.assertRaises(ValueError):
-            version.validate('0.1.0', ['v0.1.0'], commit, {'v0.1.0': 'b' * 40})
+            version.validate('0.1.0', ['v0.1.0', 'v0.2.0'], commit, {'v0.1.0': 'b' * 40})
 
     def test_rejects_invalid_versions(self):
         for candidate in ['v0.1.0', '0.1', '01.2.3', '1.0.0-beta', '1.0.0\n', '$(touch secret)']:

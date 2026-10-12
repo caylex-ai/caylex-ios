@@ -1,5 +1,6 @@
 import contextlib
 import importlib.util
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -30,7 +31,7 @@ def repository():
         git('add', 'file'); git('commit', '-m', 'first')
         first = git('rev-parse', 'HEAD')
         git('remote', 'add', 'origin', str(remote))
-        git('push', 'origin', 'HEAD:refs/heads/prod')
+        git('push', 'origin', 'HEAD:refs/heads/main')
         os.chdir(local)
         try:
             yield git, first, remote
@@ -39,16 +40,16 @@ def repository():
 
 
 class PublicationTests(unittest.TestCase):
-    def test_prod_advancing_does_not_change_the_tested_release(self):
+    def test_main_advancing_does_not_change_the_tested_release(self):
         with repository() as (git, tested, remote):
             Path('file').write_text('second')
             git('commit', '-am', 'second')
             newer = git('rev-parse', 'HEAD')
-            git('push', 'origin', 'HEAD:refs/heads/prod')
+            git('push', 'origin', 'HEAD:refs/heads/main')
             git('checkout', '--detach', tested)
             publisher.ensure_tag('v0.1.0', tested)
             self.assertEqual(git('--git-dir=' + str(remote), 'rev-parse', 'refs/tags/v0.1.0^{commit}'), tested)
-            self.assertEqual(git('--git-dir=' + str(remote), 'rev-parse', 'refs/heads/prod'), newer)
+            self.assertEqual(git('--git-dir=' + str(remote), 'rev-parse', 'refs/heads/main'), newer)
 
     def test_partial_publication_resumes_without_replacing_the_tag(self):
         real_command = publisher.command
@@ -59,7 +60,7 @@ class PublicationTests(unittest.TestCase):
             if args[0] != 'gh':
                 return real_command(*args, check=check)
             if args[1] == 'api':
-                return subprocess.CompletedProcess(args, 1, 'HTTP/2.0 404 Not Found\n\n{}', '')
+                return subprocess.CompletedProcess(args, 0, '[[]]', '')
             attempts.append(args)
             if fail_create:
                 fail_create = False
@@ -83,11 +84,11 @@ class PublicationTests(unittest.TestCase):
             self.assertEqual(git('--git-dir=' + str(remote), 'rev-parse', 'refs/tags/v0.1.0'), tested)
 
     def test_completed_release_is_not_overwritten(self):
-        result = subprocess.CompletedProcess([], 0, 'HTTP/2.0 200 OK\n\n{"draft":false}', '')
+        result = subprocess.CompletedProcess([], 0, '[[{"tag_name":"v0.1.0","draft":false}]]', '')
         with patch.object(publisher, 'command', return_value=result) as command:
-            self.assertEqual(publisher.find_release('example/sdk', 'v0.1.0'), {'draft': False})
+            self.assertEqual(publisher.find_release('example/sdk', 'v0.1.0'), {'tag_name': 'v0.1.0', 'draft': False})
         self.assertEqual(command.call_count, 1)
-        with patch.object(publisher, 'command') as command, patch.object(publisher, 'ensure_tag'), patch.object(publisher, 'find_release', return_value={'draft': False}):
+        with patch.object(publisher, 'command') as command, patch.object(publisher, 'ensure_tag'), patch.object(publisher, 'list_releases', return_value=[{'tag_name': 'v0.1.0', 'draft': False}]):
             command.return_value.stdout = 'a' * 40
             publisher.publish('v0.1.0', 'a' * 40, 'example/sdk', 'notes.md')
             self.assertEqual(command.call_count, 1)  # Only checks HEAD; no release mutation.
@@ -97,3 +98,44 @@ class PublicationTests(unittest.TestCase):
         with patch.object(publisher, 'command', return_value=result):
             with self.assertRaises(subprocess.CalledProcessError):
                 publisher.find_release('example/sdk', 'v0.1.0')
+
+    def test_draft_on_a_later_page_is_published_without_creating_another_release(self):
+        real_command = publisher.command
+        mutations = []
+        pages = [[{'tag_name': 'v0.2.0', 'draft': False}],
+                 [{'tag_name': 'v0.1.0', 'draft': True}]]
+        def fake_gh(*args, check=True):
+            if args[0] != 'gh':
+                return real_command(*args, check=check)
+            if args[1] == 'api':
+                self.assertIn('--paginate', args)
+                self.assertIn('--slurp', args)
+                return subprocess.CompletedProcess(args, 0, json.dumps(pages), '')
+            mutations.append(args)
+            return subprocess.CompletedProcess(args, 0, '', '')
+        with repository() as (_, tested, _), patch.object(publisher, 'command', side_effect=fake_gh):
+            publisher.publish('v0.1.0', tested, 'example/sdk', 'notes.md')
+        self.assertEqual(len(mutations), 1)
+        self.assertEqual(mutations[0][1:3], ('release', 'edit'))
+        self.assertIn('--draft=false', mutations[0])
+        self.assertIn('--latest=false', mutations[0])
+
+    def test_old_partial_release_recovery_preserves_newer_latest_release(self):
+        real_command = publisher.command
+        mutations = []
+        def fake_gh(*args, check=True):
+            if args[0] != 'gh':
+                return real_command(*args, check=check)
+            if args[1] == 'api':
+                return subprocess.CompletedProcess(args, 0,
+                    '[[{"tag_name":"v0.2.0","draft":false}]]', '')
+            mutations.append(args)
+            return subprocess.CompletedProcess(args, 0, '', '')
+        with repository() as (git, tested, remote), patch.object(publisher, 'command', side_effect=fake_gh):
+            git('tag', 'v0.1.0'); git('push', 'origin', 'refs/tags/v0.1.0')
+            before = git('--git-dir=' + str(remote), 'rev-parse', 'refs/tags/v0.1.0')
+            publisher.publish('v0.1.0', tested, 'example/sdk', 'notes.md')
+            self.assertEqual(git('--git-dir=' + str(remote), 'rev-parse', 'refs/tags/v0.1.0'), before)
+        self.assertEqual(len(mutations), 1)
+        self.assertEqual(mutations[0][1:3], ('release', 'create'))
+        self.assertIn('--latest=false', mutations[0])
