@@ -279,7 +279,7 @@ Install production releases in Xcode using a version dependency rule once the fi
 tag exists. The repository remains a source package; private consumers need repository
 access for local development and CI. There is no binary SDK upload in this workflow.
 
-Frontend `dev` changes automatically open or update `automation/sync-widget` → `dev`
+Frontend production (`main`) changes automatically open or update `automation/sync-widget` → `dev`
 in this repository after the frontend sync workflow is installed and its cross-repo
 credential is configured. Review those PRs after package checks pass, then promote
 and release when ready. Native-only improvements can be released without changing
