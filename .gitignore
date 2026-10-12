@@ -10,3 +10,6 @@ xcuserdata/
 # Demo project is generated from project.yml
 Examples/ChatDemo/ChatDemo.xcodeproj/
 Examples/ChatDemo/Info.plist
+
+# Python automation checks
+__pycache__/

@@ -16,14 +16,10 @@ jobs:
         run: swift test
       - name: Test streaming HTTP bridge
         run: node --test Tests/JavaScript/native-fetch.test.mjs
-      - name: Verify bundled widget checksum
+      - name: Test release guards and verify bundled widget
         run: |
-          python3 - <<'PY'
-          import hashlib, json, pathlib
-          root = pathlib.Path('Sources/CaylexChat/Resources')
-          metadata = json.loads((root / 'widget-build.json').read_text())
-          assert hashlib.sha256((root / 'chat-widget.js').read_bytes()).hexdigest() == metadata['sha256']
-          PY
+          python3 -m unittest discover -s Tests/Automation
+          python3 Scripts/verify-widget.py
       - name: Generate demo project
         run: |
           brew install xcodegen
