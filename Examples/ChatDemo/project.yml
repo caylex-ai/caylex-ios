@@ -22,13 +22,14 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: ai.caylex.ChatDemo
         SWIFT_VERSION: '6.0'
         GENERATE_INFOPLIST_FILE: YES
-        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGN_STYLE: Automatic
         INFOPLIST_KEY_NSMicrophoneUsageDescription: Talk to your Caylex assistant.
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
     info:
       path: Info.plist
       properties:
         NSMicrophoneUsageDescription: Talk to your Caylex assistant.
+        NSLocalNetworkUsageDescription: Connect to the development token server on your Mac.
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
         UISupportedInterfaceOrientations:
@@ -47,7 +48,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: ai.caylex.ChatDemoTests
         SWIFT_VERSION: '6.0'
         GENERATE_INFOPLIST_FILE: YES
-        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGN_STYLE: Automatic
 schemes:
   ChatDemo:
     build:

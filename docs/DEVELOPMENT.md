@@ -47,8 +47,39 @@ private file contains `platformToken`, `caylexApiKey`, `userEmail`, `mintURL`, a
 `apiBaseURL`, plus an optional `userName`. Use the matching production or development
 Caylex endpoints. Keep this file outside the repository with owner-only permissions.
 The demo automatically requests a live widget token at launch when this helper is configured; a token-server failure shows a retry screen instead of silently using a fixture.
-This helper is for simulator development only; production apps use their own
+This helper is for development only; production apps use their own
 backend for token minting and refresh.
+
+### Testing voice on an iPhone
+
+Use Xcode to install `ChatDemo` directly; TestFlight is optional. Connect and trust
+the iPhone, enable Developer Mode when prompted, and sign in under Xcode Settings
+→ Accounts. In the demo target's Signing & Capabilities, select your team and leave
+automatic signing enabled. CI builds explicitly disable signing on the command line.
+
+For live backend testing, keep the Mac and phone on the same trusted Wi-Fi. The
+simulator-only `127.0.0.1` address cannot reach the Mac from an iPhone. Prepare a
+temporary device pairing key and a Bonjour address instead:
+
+```sh
+python3 Scripts/prepare-device-demo.py
+python3 Examples/ChatDemo/demo-server.py \
+  --credentials-file /absolute/path/to/private-credentials.json \
+  --host YOUR_MAC_WIFI_IP \
+  --access-token-file Examples/ChatDemo/.device-test-access-token
+xcodegen generate --spec Examples/ChatDemo/project.yml
+open Examples/ChatDemo/ChatDemo.xcodeproj
+```
+
+Select your iPhone as the run destination, choose a **Debug** build, remove the
+`--fixture` argument if present, and run. Allow local network and microphone
+permissions. Test live voice and transcription in each of the three layouts.
+The ignored `Sources/DeviceTestConfig.json` resource contains only the Mac token
+server address and temporary pairing key. It is used only in Debug builds; Caylex
+API credentials stay on the Mac. Regenerating the pairing files requires restarting
+the helper and rebuilding the app. Stop the helper after testing. This local HTTP
+setup is for a trusted development network; production apps use authenticated HTTPS
+token endpoints. No tunnel or public token-minting endpoint is needed.
 
 
 ## Updating the web bundle
@@ -106,9 +137,12 @@ the bundled web widget.
 
 The manual release action is available on the default `main` branch. Use only
 `dev` and `main` as long-lived branches; there is no separate iOS `prod` branch.
-Both branches require a pull request, one maintainer approval, and a passing
-GitHub Actions `check`. New commits dismiss stale approvals; force pushes and
-branch deletions are blocked. Reviewers must be different from the PR author.
+Both branches require a pull request and a passing GitHub Actions `check`;
+force pushes and branch deletions are blocked. A separate review ruleset requires
+one approval, with a pull-request-only exemption for the Caylex iOS maintainers
+team. Add new internal maintainers to that team to grant the exemption. New commits
+dismiss stale approvals; reviewers must be different from the PR author when an
+approval is required. The exemption does not bypass CI or branch integrity rules.
 
 The frontend workflow uses `CAYLEX_IOS_SYNC_TOKEN` (Contents and Pull requests write
 access to this repository) stored in `caylex-frontend` Actions secrets. See

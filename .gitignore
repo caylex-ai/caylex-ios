@@ -10,6 +10,8 @@ xcuserdata/
 # Demo project is generated from project.yml
 Examples/ChatDemo/ChatDemo.xcodeproj/
 Examples/ChatDemo/Info.plist
+Examples/ChatDemo/Sources/DeviceTestConfig.json
+Examples/ChatDemo/.device-test-access-token
 
 # Python automation checks
 __pycache__/
