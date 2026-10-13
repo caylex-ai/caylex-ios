@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Local integration fixture; no AI calls or production credentials."""
 import argparse
+import hmac
+import ipaddress
 import json
 import pathlib
 import urllib.request
@@ -16,6 +18,11 @@ lock = threading.RLock()
 sessions = {}
 approvals = {}
 credentials_file = None
+device_access_token = None
+
+def validate_bind_address(host, access_token):
+    if not ipaddress.ip_address(host).is_loopback and not access_token:
+        raise ValueError('A non-loopback listener requires --access-token-file')
 
 def mint_live_token():
     if credentials_file is None:
@@ -64,6 +71,7 @@ class Handler(BaseHTTPRequestHandler):
         data = json.dumps(payload).encode()
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')
+        self.send_header('Cache-Control', 'no-store')
         self.send_header('Content-Length', str(len(data)))
         self.end_headers()
         self.wfile.write(data)
@@ -82,6 +90,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path in ['/demo/config', '/demo/token']:
+            if device_access_token and not hmac.compare_digest(
+                    self.headers.get('Authorization', '').encode(), ('Bearer ' + device_access_token).encode()):
+                self.json({'detail': 'Device pairing key required'}, 403); return
             if self.headers.get('X-Caylex-Demo') != '1':
                 self.json({'detail': 'Native demo request header required'}, 403); return
             try:
@@ -194,8 +205,17 @@ class Handler(BaseHTTPRequestHandler):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--credentials-file', type=pathlib.Path, help='Private local JSON file; never commit credentials')
+    parser.add_argument('--host', default='127.0.0.1', help='Bind address; device tests use the Mac Wi-Fi IP')
+    parser.add_argument('--access-token-file', type=pathlib.Path, help='Temporary device pairing key; required for non-loopback binding')
     args = parser.parse_args()
     credentials_file = args.credentials_file
-    server = ThreadingHTTPServer(('127.0.0.1', 8765), Handler)
-    print('Caylex demo backend: http://127.0.0.1:8765/api/', flush=True)
+    if args.access_token_file:
+        device_access_token = args.access_token_file.read_text().strip()
+        if len(device_access_token) < 32: parser.error('Use a randomly generated pairing key of at least 32 characters')
+    try:
+        validate_bind_address(args.host, device_access_token)
+    except ValueError as error:
+        parser.error(str(error))
+    server = ThreadingHTTPServer((args.host, 8765), Handler)
+    print(f'Caylex demo backend: http://{args.host}:8765/api/', flush=True)
     server.serve_forever()

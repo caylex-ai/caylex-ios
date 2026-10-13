@@ -75,7 +75,7 @@ struct DemoView: View {
             configuration = config
             selectLaunchLayout()
         } catch {
-            connectionError = "Start the local token server with your credentials file, then retry. " + error.localizedDescription
+            connectionError = "Start the token server on your Mac. For device tests, keep the Mac and iPhone on the same Wi-Fi and allow local network access. " + error.localizedDescription
         }
     }
 
@@ -103,10 +103,33 @@ struct DemoView: View {
         let userName: String
     }
 
+    private struct DeviceTestConfig: Decodable {
+        let tokenServerURL: URL
+        let accessToken: String
+    }
+
     private func fetchLocalToken(path: String) async throws -> LiveToken {
-        var request = URLRequest(url: URL(string: "http://127.0.0.1:8765/demo/\(path)")!)
+        var serverURL = URL(string: "http://127.0.0.1:8765/demo/")!
+        var accessToken: String?
+        // This ignored resource contains only a temporary demo-server pairing key.
+        // Caylex API credentials stay on the Mac. Release builds never use it.
+        #if DEBUG
+        if let url = Bundle.main.url(forResource: "DeviceTestConfig", withExtension: "json") {
+            let config = try JSONDecoder().decode(DeviceTestConfig.self, from: Data(contentsOf: url))
+            guard config.tokenServerURL.scheme == "https" ||
+                    (config.tokenServerURL.scheme == "http" &&
+                     config.tokenServerURL.host?.hasSuffix(".local") == true),
+                  !config.accessToken.isEmpty else {
+                throw CaylexChatError.bridge("Invalid device-test token server configuration")
+            }
+            serverURL = config.tokenServerURL
+            accessToken = config.accessToken
+        }
+        #endif
+        var request = URLRequest(url: serverURL.appendingPathComponent(path))
         request.timeoutInterval = 15
         request.setValue("1", forHTTPHeaderField: "X-Caylex-Demo")
+        if let accessToken { request.setValue("Bearer " + accessToken, forHTTPHeaderField: "Authorization") }
         let (data, response) = try await URLSession.shared.data(for: request)
         guard (response as? HTTPURLResponse)?.statusCode == 200 else {
             throw CaylexChatError.bridge("The local server could not mint a live widget token")

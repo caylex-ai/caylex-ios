@@ -1,37 +1,53 @@
 # Caylex iOS
 
-Embed the Caylex chat widget in an iOS app using SwiftUI and WKWebView. The
-package bundles the existing React widget; it does not require Node.js or a
-CDN download in the consuming app.
+Embed the Caylex Agent Widget in your iOS app with SwiftUI. `CaylexChatView`
+bundles the same chat UI as the web widget and renders it in a `WKWebView`, with
+Swift controls for sessions, token refresh, and navigation. It supports streamed
+replies, tool approvals, connected services, and saved conversations.
 
-## Requirements and status
+## Requirements
 
-- iOS 16.4 or later; Swift tools 6.0 or later
-- No external Swift dependencies
-- Tested on an iPhone 16 simulator running iOS 18.3
-- First implementation: chat, streamed replies, approvals, session commands,
-  token refresh, theming, native navigation callbacks, and lifecycle handling
-- Live voice, dictation, attachments, and read-aloud use the web widget's existing
-  implementation. Microphone/audio routing, device interruptions, and file-picker
-  behavior still require physical-device verification.
+- iOS 16.4 or later and Swift tools 6.0 or later
+- A Caylex navigator and an authenticated backend that provides widget tokens
 
-## Add the package
+## Install
 
-In Xcode, open **File → Add Package Dependencies**, enter
-`https://github.com/caylex-ai/caylex-ios`, and add the **CaylexChat** product to
-your app target. While the repository is private, developers need GitHub access.
+In Xcode, select **File → Add Package Dependencies**, enter
+`https://github.com/caylex-ai/caylex-ios`, and add **CaylexChat** to your app target.
+The repository is public; no invitation, npm installation, or access to the
+private frontend repository is required.
 
-Select the `main` branch for the current stable implementation, or `dev` for development testing. No version tags have
-been published yet. A semantic-version tag (for example, `0.1.0`) will let apps
-pin a tested release using Xcode's version dependency rules instead of a moving
-branch. The Git repository is the distribution source; no App Store submission
-or npm installation is needed to consume this Swift package.
+No releases are tagged yet. Select the **main** branch to try the package.
+Once the first release is published, pin a tested version using Xcode's version
+rules for production apps. Use `dev` only for development testing.
+
+## Configure your app
+
+Add this entry to your app's `Info.plist`. If `NSAppTransportSecurity` already
+exists, add the local-networking key to that dictionary. The package serves its
+bundled UI locally on `127.0.0.1`.
+
+```xml
+<key>NSAppTransportSecurity</key>
+<dict>
+    <key>NSAllowsLocalNetworking</key>
+    <true/>
+</dict>
+```
+
+For dictation or live voice, also add:
+
+```xml
+<key>NSMicrophoneUsageDescription</key>
+<string>Talk to your assistant.</string>
+```
 
 ## Embed a chat
 
-Obtain a short-lived widget token from your authenticated app backend, then
-present this SwiftUI screen. The refresh closure requests a replacement token
-from that same backend and is configured before the widget mounts.
+Fetch a short-lived widget token from your authenticated backend before showing
+this screen. Supply a `refreshToken` closure that requests a replacement from
+that same backend. Platform tokens and navigator API keys stay on your backend;
+only widget tokens reach the app.
 
 ```swift
 import SwiftUI
@@ -48,7 +64,6 @@ struct ChatScreen: View {
     ) {
         let controller = CaylexChatController()
         controller.refreshToken = refreshToken
-        // Configure onError, onNavigate, and session callbacks here as needed.
         _chat = StateObject(wrappedValue: controller)
 
         configuration = CaylexChatConfiguration(
@@ -60,70 +75,56 @@ struct ChatScreen: View {
     }
 
     var body: some View {
-        CaylexChatView(
-            configuration: configuration,
-            controller: chat
-        )
-        .ignoresSafeArea(.container)
+        CaylexChatView(configuration: configuration, controller: chat)
+            .ignoresSafeArea(.container)
     }
 }
 ```
 
-Your app supplies the `refreshToken` closure; the package does not mint tokens
-with platform credentials. The flow is **app → your backend → Caylex token
-minting API → widget token returned to the app**. Platform tokens and Caylex API
-keys stay on your backend. Only short-lived widget tokens reach the app.
+Your app provides the token-fetching function; the package does not mint tokens
+with platform credentials. Keep one controller per mounted view, and configure
+its callbacks before mounting. For a development navigator, use
+`https://api.caylex.dev/api/v1/assistants/` with matching development tokens.
 
-Add the local-networking and microphone entries described under
-[Host app configuration](#host-app-configuration) to your app's `Info.plist`.
-The view handles chat UI, API requests, and streamed replies without JavaScript
-setup in the consuming app.
+## Fit your layout
 
-Keep one controller per mounted chat view. SwiftUI updates to credentials or
-appearance preserve the widget's session. Changing the API URL, agent instance,
-or tenant user recreates the document and clears its browser storage. For an
-account switch where those fields do not change, give the view a new `.id(userID)`
-and a separate controller so the previous account's state is discarded.
+The chat fills its parent. For full screen, use `.ignoresSafeArea(.container)`
+as above, leaving the keyboard safe area enabled. For a top bar or bottom dock,
+place the chat in the remaining space in a `VStack(spacing: 0)` and keep its
+default safe-area behavior.
 
-The view fills its parent and follows SwiftUI's keyboard safe area. Give it a
-bounded height when placing it inside another scrolling layout. It does not
-force its own navigation bar, sheet, or full-screen presentation.
-
-The host app controls the widget's outer shape with ordinary SwiftUI modifiers:
+For a card, control its height and outer shape with SwiftUI:
 
 ```swift
-CaylexChatView(configuration: config, controller: chat)
+CaylexChatView(configuration: configuration, controller: chat)
     .frame(maxWidth: .infinity)
     .frame(height: 500)
     .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-    .overlay {
-        RoundedRectangle(cornerRadius: 28, style: .continuous)
-            .strokeBorder(.gray.opacity(0.2), lineWidth: 1)
-            .allowsHitTesting(false)
-    }
     .padding(16)
 ```
 
-For a top bar or bottom dock, place the chat in the remaining space in a
-`VStack(spacing: 0)` and let SwiftUI size it. Keep the default safe-area behavior
-for those embedded layouts; use `.ignoresSafeArea(.container)` only when the
-chat should extend to the screen edges. Avoid ignoring the keyboard safe area.
-Clipping also contains the widget's drawers and popovers inside your chosen shape.
+Clipping also contains drawers and popovers. Give the chat a bounded height when
+placing it inside another scrolling layout.
 
-## Sessions and notification routing
+## Customize and control the widget
+
+Set appearance and the initial session before mounting:
 
 ```swift
 var config = CaylexChatConfiguration(apiBaseURL: apiURL, widgetToken: token)
-config.initialSession = .existing(savedSessionID) // Restore on first mount.
-// .new explicitly creates a session; .automatic restores browser state if available.
+config.userName = "Jane"
+config.sampleQueries = ["Show me recent orders"]
+config.theme = .dark
+config.darkBackgroundColor = "#15151C"
+config.showToolCallDetails = false
+config.initialSession = .existing(savedSessionID)
+// .new starts a fresh session; .automatic restores web storage when available.
+```
 
-chat.onSessionCreated = { id in /* Save the mapping in your app. */ }
-chat.onSessionChanged = { session in /* Observe chat/background-task selection. */ }
+Use the controller from an async task and handle thrown errors:
 
-// After the view mounts, e.g. after a notification tap:
-try await chat.openSession(notificationSessionID)
-
-// Other native commands:
+```swift
+try await chat.openSession(savedSessionID)
 try await chat.sendMessage("Hello")
 try await chat.startNewChat()
 try await chat.stopGeneration()
@@ -131,175 +132,36 @@ try await chat.resume()
 try await chat.refresh()
 ```
 
-Commands wait up to 30 seconds for an attached widget to become ready. The
-`status`, `session`, `isExpanded`, `microphoneSupported`, and `realtimeSupported`
-properties are observable. Capability flags indicate browser API availability,
-not granted permission or a successful live voice connection. Chat/backend errors
-are also delivered through `onError`.
+`initialSession` applies on first mount. Persist session IDs in your app or
+backend to restore conversations across launches; the web view's storage is
+ephemeral. Configure `onSessionCreated` and `onSessionChanged` to track sessions,
+and `onError` for error handling. Use a separate controller and a new view
+identity, such as `.id(userID)`, when switching accounts.
 
-`initialSession` applies on first mount. Use `openSession` for later session
-changes. Browser storage belongs to an ephemeral WKWebView and is not durable
-across app launches; persist session IDs in your host app to restore them later.
+Pass `navigablePages` and `navigationBaseUrl`, then handle `onNavigate` for
+agent-driven app navigation. External links and authentication flows open in
+the system browser by default, or through your `onOpenURL` callback.
 
-Push notifications are the host app's responsibility: register with APNs, send
-the device token to your backend, and route notification taps to `openSession`.
-The package does not register for push or send notifications. Long-running agent
-work must execute durably on the backend, independently of the app's connection.
+See [configuration options](Sources/CaylexChat/CaylexChatConfiguration.swift)
+and [controller callbacks and state](Sources/CaylexChat/CaylexChatController.swift)
+for the full API.
 
-## Appearance and navigation
+## Voice, notifications, and updates
 
-Configuration mirrors the web widget's personalization, colors, full/compact
-presentation, connected-service button, tool details, memory, and external-session
-sync options. The iOS defaults fill the container, remove the card corner radius,
-and enable external-session polling while visible.
+Validate dictation, live voice, audio routing, attachments, and read-aloud on a
+physical iPhone. Simulator microphone capture may use mock audio devices, and
+these features still require physical-device verification. Voice capture stops
+when the app enters the background and does not restart automatically.
 
-Pass `navigablePages` and `navigationBaseUrl` to enable agent navigation tools.
-`onNavigate` delivers their resolved URL and page name to Swift. Ordinary links
-and authentication popups open through `onOpenURL`, or the system browser if
-that callback is omitted. After authentication, the widget refreshes connected
-services when the app becomes active.
+Your app owns APNs registration and notification delivery. Route notification
+taps to `chat.openSession(sessionID)` after the view mounts. Background agent
+work runs on the backend; app suspension can interrupt streams.
 
-For a full-screen chat, apply `.ignoresSafeArea(.container)` to `CaylexChatView`.
-The bundled page uses `viewport-fit=cover` and safe-area insets to keep the
-header, composer, and drawer controls clear of the status bar and home indicator,
-while drawer backgrounds and backdrops cover the entire screen. Keyboard safe
-areas remain managed by SwiftUI.
+The package ships a bundled snapshot of the web widget. To deliver improvements
+to installed apps, update the Swift package dependency and ship an app update.
 
-## Host app configuration
+## Contributing
 
-The bundle is served from a random URL path on an ephemeral HTTP listener bound
-only to `127.0.0.1`. This gives WebKit a local HTTP origin for its media APIs.
-Enable local networking in the host app's `Info.plist`:
-
-```xml
-<key>NSAppTransportSecurity</key>
-<dict>
-    <key>NSAllowsLocalNetworking</key>
-    <true/>
-</dict>
-```
-
-For microphone features, also add a description appropriate to your app:
-
-```xml
-<key>NSMicrophoneUsageDescription</key>
-<string>Talk to your assistant.</string>
-```
-
-Microphone access is requested only when the user activates a voice control.
-iOS Simulator's WebKit uses mock capture devices by default. A successful
-`getUserMedia` call or a connected voice session there does not prove it is
-receiving your Mac microphone; our iOS 18.3 runtime reports `Mock audio device 1`.
-Use a physical iPhone to validate dictation and live voice with real speech.
-
-Camera access is denied. The host app owns any audio-session policies it needs
-for mixing, Bluetooth, or other existing audio features. Voice capture stops
-when the app enters the background; it is not automatically restarted.
-
-## Transport and lifecycle
-
-A narrowly scoped fetch bridge routes requests under the configured Assistants
-API base URL through an ephemeral native URLSession. SSE chunks are forwarded
-as they arrive, multipart uploads preserve their bodies, and AbortSignal cancels
-native requests. This avoids requiring CORS changes for an embedded origin.
-HTTP error statuses stay ordinary responses so the widget's 401 refresh/retry
-logic continues to work. Redirects outside the configured API are not followed.
-Only HTTPS API URLs are accepted, apart from localhost HTTP for development.
-
-Live voice retains its existing WebRTC media and WebSocket relay. On foreground,
-the wrapper refreshes service/task state and wakes session polling. A terminated
-WebKit process is reloaded. iOS suspension can interrupt streams; restore or
-resume from the backend rather than assuming uninterrupted background execution.
-
-## Demo and development
-
-```sh
-swift test
-node --test Tests/JavaScript/native-fetch.test.mjs
-
-# Requires XcodeGen to generate the small demo project.
-xcodegen generate --spec Examples/ChatDemo/project.yml
-python3 Examples/ChatDemo/demo-server.py
-open Examples/ChatDemo/ChatDemo.xcodeproj
-```
-
-Run the `ChatDemo` scheme on an iPhone simulator with the `--fixture` launch
-argument to test the local fixture. Its initial token deliberately expires to
-test automatic refresh. The local backend produces clearly labeled
-fixture replies, a tool-approval flow, and a saved session. It never calls an AI
-provider. The demo opens a layout picker with three pages: full screen, above a
-native bottom dock, and a rounded card between a top bar and bottom dock.
-Use **Layouts** to return to the picker. Each page owns a separate controller;
-returning to the picker closes that mounted chat. The full-screen page's floating
-Layouts button is a demo control, not part of the package.
-For a direct launch, add `--layout=full`, `--layout=dock`, or `--layout=framed`.
-
-To test a real agent, run the local server
-with `--credentials-file /absolute/path/to/private-credentials.json`. That
-private file contains `platformToken`, `caylexApiKey`, `userEmail`, `mintURL`, and
-`apiBaseURL`, plus an optional `userName`. Use the matching production or development
-Caylex endpoints. Keep this file outside the repository with owner-only permissions.
-The demo automatically requests a live widget token at launch when this helper is configured; a token-server failure shows a retry screen instead of silently using a fixture.
-This helper is for simulator development only; production apps use their own
-backend for token minting and refresh.
-
-## Updating the web bundle
-
-The JavaScript source of truth remains in
-`caylex-frontend/packages/chat-widget/src/ios-entry.tsx`, using the same widget
-component and chat hook as the npm and CDN packages.
-
-```sh
-./Scripts/sync-widget.sh /absolute/path/to/caylex-frontend
-```
-
-The script type-checks/builds the iOS entry, copies its generated JavaScript,
-and records the frontend commit, working-tree state, widget version, and SHA-256
-in `Resources/widget-build.json`. Commit the updated bundle with its metadata.
-Before a release, build from a clean committed frontend checkout. Consumers
-receive the bundled build and do not need access to the frontend repository.
-
-CI tests configuration encoding and the streaming bridge, checks the bundle
-checksum, and compiles the iOS demo. No credentials are required.
-
-## Development and production releases
-
-- `dev` receives Swift changes and reviewed frontend bundle sync PRs.
-- `main` is the default branch and contains approved production code. Promote with a `dev` → `main` PR.
-- Swift package release versions are independent of the bundled widget's npm version.
-
-After merging a promotion PR, select **Actions → Publish iOS release → Run workflow**,
-choose **main**, and enter a new stable version such as `0.1.0` (without `v`).
-The workflow validates bundle provenance, runs package/bridge tests, and compiles
-both device and simulator builds before creating `v0.1.0` and a GitHub release.
-The release is pinned to the production commit selected when the workflow starts;
-advancing `main` during its checks does not change what gets tested or tagged.
-New versions must increase. A retry may reuse an existing version only when its
-tag points to that same tested commit, even if newer versions have since been released.
-Recovery detects existing drafts and preserves any newer latest release.
-Existing tags are never moved and completed
-releases are left unchanged. If tag publication succeeds but GitHub release creation
-fails, rerun the failed workflow with **Re-run failed jobs** so it retains the original
-commit and completes the missing release. A new dispatch after `main` advances cannot
-reuse the old version for a different commit.
-The workflow does not merge branches or change repository visibility.
-
-Install production releases in Xcode using a version dependency rule once the first
-tag exists. The repository remains a source package; private consumers need repository
-access for local development and CI. There is no binary SDK upload in this workflow.
-
-Frontend production (`prod`) changes automatically open or update `automation/sync-widget` → `dev`
-in this repository after the frontend sync workflow is installed and its cross-repo
-credential is configured. Review those PRs after package checks pass, then promote
-and release when ready. Native-only improvements can be released without changing
-the bundled web widget.
-
-Bootstrap the workflow by merging its setup PR into `dev`, then promoting `dev`
-to `main`. The manual release action becomes available on the default `main` branch.
-Use only `dev` and `main` as long-lived branches; there is no separate iOS `prod` branch.
-Protect `dev` and `main` with required PRs and package checks
-in repository settings according to your organization's policy.
-
-The frontend workflow uses `CAYLEX_IOS_SYNC_TOKEN` (Contents and Pull requests write
-access to this repository) stored in `caylex-frontend` Actions secrets. See
-`caylex-frontend/docs/ios-widget-sync.md` for setup and rollout order.
+See the [development guide](docs/DEVELOPMENT.md) for the demo app, tests, bundle
+syncing, transport details, and release workflow. App developers do not need
+these tools to consume the package.
