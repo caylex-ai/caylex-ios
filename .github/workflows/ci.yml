@@ -23,9 +23,36 @@ jobs:
       - name: Generate demo project
         run: |
           brew install xcodegen
+          # Exercise resource packaging with a fake local pairing file present.
+          python3 - <<'PY'
+          import json, pathlib
+          pathlib.Path('Examples/ChatDemo/Sources/DeviceTestConfig.json').write_text(json.dumps({
+              'tokenServerURL': 'http://ci-fixture.local:8765/demo/',
+              'accessToken': 'caylex-ci-device-pairing-key-not-a-real-secret',
+          }))
+          PY
           xcodegen generate --spec Examples/ChatDemo/project.yml
       - name: Compile iOS demo and package
         run: >-
           xcodebuild -project Examples/ChatDemo/ChatDemo.xcodeproj
-          -scheme ChatDemo -destination 'generic/platform=iOS Simulator'
+          -scheme ChatDemo -configuration Debug -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath .build/demo-resource-check
           CODE_SIGNING_ALLOWED=NO build
+      - name: Verify pairing resources never ship in Release archives
+        run: |
+          xcodebuild -project Examples/ChatDemo/ChatDemo.xcodeproj \
+            -scheme ChatDemo -configuration Release -destination 'generic/platform=iOS' \
+            -derivedDataPath .build/demo-resource-check \
+            -archivePath .build/demo-resource-check.xcarchive \
+            CODE_SIGNING_ALLOWED=NO archive
+          python3 - <<'PY'
+          import pathlib
+          debug = pathlib.Path('.build/demo-resource-check/Build/Products/Debug-iphonesimulator/ChatDemo.app')
+          release = pathlib.Path('.build/demo-resource-check.xcarchive/Products/Applications/ChatDemo.app')
+          key = b'caylex-ci-device-pairing-key-not-a-real-secret'
+          assert (debug / 'DeviceTestConfig.json').is_file(), 'Debug is missing device pairing support'
+          assert release.is_dir(), 'Release app archive is missing'
+          assert not list(release.rglob('DeviceTestConfig.json')), 'Release includes device pairing config'
+          assert not any(key in file.read_bytes() for file in release.rglob('*') if file.is_file()), 'Release includes pairing key'
+          print('Debug includes pairing config; Release archive excludes the config and key')
+          PY

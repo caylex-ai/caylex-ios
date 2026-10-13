@@ -23,8 +23,13 @@ targets:
         SWIFT_VERSION: '6.0'
         GENERATE_INFOPLIST_FILE: YES
         CODE_SIGN_STYLE: Automatic
+        # Pairing resources are local development data, never shipping resources.
+        EXCLUDED_SOURCE_FILE_NAMES: DeviceTestConfig.json
         INFOPLIST_KEY_NSMicrophoneUsageDescription: Talk to your Caylex assistant.
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
+      configs:
+        Debug:
+          EXCLUDED_SOURCE_FILE_NAMES: ''
     info:
       path: Info.plist
       properties:

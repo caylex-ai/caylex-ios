@@ -81,7 +81,8 @@ Select your iPhone as the run destination, choose a **Debug** build, remove the
 `--fixture` argument if present, and run. Allow local network and microphone
 permissions. Test live voice and transcription in each of the three layouts.
 The ignored `Sources/DeviceTestConfig.json` resource contains only the Mac token
-server address and temporary pairing key. It is used only in Debug builds; Caylex
+server address and temporary pairing key. It is included only in Debug builds;
+Release archives exclude the file even when it exists locally. Caylex
 API credentials stay on the Mac. Regenerating the pairing files requires restarting
 the helper and rebuilding the app. Stop the helper after testing. This local HTTP
 setup is for a trusted development network; production apps use authenticated HTTPS
