@@ -17,6 +17,12 @@ the wrapper refreshes service/task state and wakes session polling. A terminated
 WebKit process is reloaded. iOS suspension can interrupt streams; restore or
 resume from the backend rather than assuming uninterrupted background execution.
 
+SwiftUI resizes the chat for its parent's keyboard safe area. The web view pins its
+outer scroll viewport at the origin so WebKit's focused-input scrolling cannot
+shift the entire widget during the keyboard animation. Message and drawer lists
+scroll within their own DOM containers. Host apps should preserve keyboard safe
+area handling; full-screen layouts may ignore the container safe area only.
+
 
 ## Demo and development
 

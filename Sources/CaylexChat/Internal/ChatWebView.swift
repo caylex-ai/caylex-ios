@@ -21,11 +21,12 @@ struct ChatWebView: UIViewRepresentable {
            let script = try? String(contentsOf: url, encoding: .utf8) {
             config.userContentController.addUserScript(WKUserScript(source: script, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         }
-        let webView = WKWebView(frame: .zero, configuration: config)
+        let webView = ChatViewportWebView(frame: .zero, configuration: config)
         webView.isOpaque = false
         webView.backgroundColor = .clear
         webView.scrollView.backgroundColor = .clear
         webView.scrollView.isScrollEnabled = false
+        webView.scrollView.bounces = false
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
@@ -43,6 +44,37 @@ struct ChatWebView: UIViewRepresentable {
         webView.navigationDelegate = nil
         webView.uiDelegate = nil
         webView.stopLoading()
+    }
+}
+
+@MainActor
+private final class ChatViewportWebView: WKWebView {
+    private var offsetObservation: NSKeyValueObservation?
+
+    override init(frame: CGRect, configuration: WKWebViewConfiguration) {
+        super.init(frame: frame, configuration: configuration)
+        offsetObservation = scrollView.observe(\.contentOffset, options: [.new]) { [weak self] _, _ in
+            MainActor.assumeIsolated {
+                self?.keepRootViewportInPlace()
+            }
+        }
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        keepRootViewportInPlace()
+    }
+
+    private func keepRootViewportInPlace() {
+        // SwiftUI owns keyboard avoidance by resizing this view. WebKit may still
+        // scroll its root UIScrollView to reveal the focused textarea even when
+        // isScrollEnabled is false. That second adjustment moves the entire chat
+        // during the keyboard animation. Inner DOM message/drawer scrolling stays
+        // independent; only the fixed outer viewport is pinned.
+        guard scrollView.contentOffset != .zero else { return }
+        scrollView.setContentOffset(.zero, animated: false)
     }
 }
 #endif
