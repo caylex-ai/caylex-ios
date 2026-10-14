@@ -1,6 +1,6 @@
 {
-  "frontendCommit": "e127ea1925e6b6dd844730d8d09e9da1c7e7de98",
+  "frontendCommit": "f24d8b0183ea388bba7d2dccb656b47cc7b1c0b5",
   "frontendHasLocalChanges": false,
-  "widgetVersion": "0.1.35",
-  "sha256": "7424d599c1f34eebd3dd8f383be2e75233cf5270da74c39fed3c6e66fc901311"
+  "widgetVersion": "0.1.36",
+  "sha256": "5d68357156a56801ea97e9295dcb09a8d36e1d0b12952e27bcc61c397c80ef68"
 }
